@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ARENA.IO | Realistic Battle</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #05050a; 
+            color: #fff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            overflow: hidden; 
+        }
+
+        /* Full-screen UI Layers */
+        .screen { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            background: radial-gradient(circle, #0e0e1a 0%, #05050a 100%); 
+            z-index: 10;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Panels and UI Elements */
+        .panel { 
+            background: rgba(10, 10, 25, 0.95); 
+            padding: 30px; 
+            border: 2px solid #00f2ff; 
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.15);
+            width: 320px; 
+            text-align: center; 
+            border-radius: 15px; 
+        }
+
+        h1 { font-size: 3em; margin-bottom: 20px; text-shadow: 0 0 10px #00f2ff; letter-spacing: 2px; }
+        h2 { color: #00f2ff; margin-top: 0; }
+        
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            margin-top: 15px; 
+            background: #00f2ff; 
+            border: none; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border-radius: 5px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+
+        button:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 242, 255, 0.4); }
+
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 10px 0; 
+            background: #111; 
+            color: #fff; 
+            border: 1px solid #333; 
+            border-radius: 5px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:focus, select:focus { border-color: #00f2ff; }
+
+        /* In-Game HUD */
+        #gameUI { 
+            position: fixed; 
+            top: 20px; 
+            width: 100%; 
+            text-align: center; 
+            z-index: 5; 
+            pointer-events: none;
+        }
+
+        #timerDisplay {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00f2ff;
+            text-shadow: 0 0 15px rgba(0, 242, 255, 0.8);
+        }
+
+        #specBanner { 
+            background: rgba(255, 0, 85, 0.2);
+            color: #ff0055; 
+            font-size: 18px; 
+            display: inline-block;
+            padding: 5px 20px;
+            border-radius: 20px;
+            border: 1px solid #ff0055;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .player-node { 
+            padding: 10px; 
+            border-bottom: 1px solid #222; 
+            color: #eee; 
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="menuScreen" class="screen">
+        <h1>ARENA.IO</h1>
+        <div class="panel">
+            <input type="text" id="playerName" placeholder="Enter Your Name..." maxlength="12">
+            <button onclick="showCreate()">Host Arena</button>
+            <button onclick="showJoin()">Join Friend</button>
+        </div>
+    </div>
+
+    <div id="createScreen" class="screen hidden">
+        <div class="panel">
+            <h2>Lobby Settings</h2>
+            <label style="display:block; text-align:left; font-size:12px; color:#888;">Select Map</label>
+            <select id="mapType">
+                <option value="neon_void">Neon Void (Cyberpunk)</option>
+                <option value="lava_pit">Lava Pit (Underworld)</option>
+                <option value="deep_ocean">Deep Ocean (Abyss)</option>
+                <option value="enchanted_forest">Enchanted Forest (Nature)</option>
+                <option value="galactic_core">Galactic Core (Space)</option>
+            </select>
+            
+            <label style="display:block; text-align:left; font-size:12px; color:#888;">Match Duration</label>
+            <select id="duration">
+                <option value="30">30 Seconds</option>
+                <option value="60">60 Seconds</option>
+                <option value="90">90 Seconds</option>
+                <option value="120">120 Seconds</option>
+            </select>
+
+            <button onclick="createRoom()">Open Lobby</button>
+            <button style="background:#222; color:#777;" onclick="location.reload()">Back</button>
+        </div>
+    </div>
+
+    <div id="joinScreen" class="screen hidden">
+        <div class="panel">
+            <h2>Enter Code</h2>
+            <input type="text" id="roomCodeInput" placeholder="5-LETTER CODE" style="text-align: center; font-size: 24px; color: #00f2ff;">
+            <button onclick="joinRoom()">Enter Arena</button>
+            <button style="background:#222; color:#777;" onclick="location.reload()">Back</button>
+        </div>
+    </div>
+
+    <div id="lobbyScreen" class="screen hidden">
+        <div class="panel">
+            <p style="margin:0; color:#888;">ROOM CODE</p>
+            <h1 id="displayCode" style="color:#ff0055; margin-bottom:10px;">-----</h1>
+            
+            <div id="leaderSettings" class="hidden" style="border-top: 1px solid #333; padding-top: 10px;">
+                <label style="font-size: 10px; color: #00f2ff; display: block; text-align: left;">ADJUST MAP</label>
+                <select id="lobbyMapType" onchange="changeLobbySettings()">
+                    <option value="neon_void">Neon Void</option>
+                    <option value="lava_pit">Lava Pit</option>
+                    <option value="deep_ocean">Deep Ocean</option>
+                    <option value="enchanted_forest">Enchanted Forest</option>
+                    <option value="galactic_core">Galactic Core</option>
+                </select>
+                <label style="font-size: 10px; color: #00f2ff; display: block; text-align: left;">ADJUST TIME</label>
+                <select id="lobbyDuration" onchange="changeLobbySettings()">
+                    <option value="30">30 Seconds</option>
+                    <option value="60">60 Seconds</option>
+                    <option value="90">90 Seconds</option>
+                </select>
+            </div>
+    
+            <div id="playerList"></div>
+            <button id="startBtn" class="hidden" onclick="startGame()">START MATCH</button>
+            <p id="waitMsg" style="font-size: 12px; color: #555;">Waiting for host...</p>
+        </div>
+    </div>
+
+    <div id="endScreen" class="screen hidden" style="background: rgba(0,0,0,0.9);">
+        <div class="panel" style="border-color: #ff0055;">
+            <h1 id="endStatus" style="text-shadow: 0 0 10px #ff0055;">MATCH ENDED</h1>
+            <h2 id="winnerText">Winner: ---</h2>
+            <button id="restartBtn" class="hidden" onclick="restartGame()">RESTART TO LOBBY</button>
+            <button style="background: #222;" onclick="location.reload()">LEAVE</button>
+        </div>
+    </div>
+
+    <div id="gameUI" class="hidden">
+        <div id="timerDisplay">0s REMAINING</div>
+        <div id="specBanner" class="hidden">● SPECTATING SURVIVORS</div>
+    </div>
+
+    <canvas id="gameCanvas" class="hidden"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

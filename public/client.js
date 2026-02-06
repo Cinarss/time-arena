@@ -6,6 +6,42 @@ const socket = io({
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// --- AUDIO SYSTEM ---
+const sounds = {
+    bgm: new Audio('bgm.mp3'),
+    hit: new Audio('hit.mp3')
+};
+sounds.bgm.loop = true;
+sounds.bgm.volume = 0.2;
+
+let isMuted = false;
+
+function startAudio() {
+    if (!isMuted) {
+        sounds.bgm.play().catch(e => console.log("Audio waiting for interaction"));
+    }
+}
+
+function toggleMute(e) {
+    if (e && e.target) e.target.blur(); 
+    isMuted = !isMuted;
+    const btn = document.getElementById('muteBtn');
+    if (isMuted) {
+        sounds.bgm.pause();
+        if (btn) btn.innerText = "🔈 Music: OFF";
+    } else {
+        sounds.bgm.play().catch(e => {});
+        if (btn) btn.innerText = "🔊 Music: ON";
+    }
+}
+
+function playHitSound() {
+    if (isMuted) return; 
+    const s = sounds.hit.cloneNode();
+    s.volume = 0.2;
+    s.play().catch(() => {});
+}
+
 let gameState = null;
 let currentMap = "neon_void";
 let isLeader = false;
@@ -14,7 +50,6 @@ let animationId = null;
 let screenShake = 0;
 const hitSparks = [];
 
-// --- MAP CONFIGURATIONS ---
 const MAPS = {
     "neon_void": { color: "#00f2ff", secondary: "#ff0055", bg: "#050508", particleCount: 80, pColor: "#00f2ff" },
     "lava_pit": { color: "#ff4400", secondary: "#ffcc00", bg: "#1a0500", particleCount: 50, pColor: "#ffcc00" },
@@ -23,7 +58,16 @@ const MAPS = {
     "galactic_core": { color: "#ff00ff", secondary: "#ffffff", bg: "#0a0015", particleCount: 150, pColor: "#ffffff" }
 };
 
-// --- LOBBY SETTINGS SYNC ---
+// --- FIX: Force immediate input state sync ---
+function resetInputs() {
+    inputs.up = false;
+    inputs.down = false;
+    inputs.left = false;
+    inputs.right = false;
+    inputs.dash = false;
+    socket.emit('playerInput', inputs);
+}
+
 function changeLobbySettings() {
     if (!isLeader) return;
     const settings = {
@@ -35,13 +79,10 @@ function changeLobbySettings() {
 
 socket.on('settingsUpdated', (data) => {
     currentMap = data.mapType;
-    const mapSelect = document.getElementById('lobbyMapType');
-    const durSelect = document.getElementById('lobbyDuration');
-    if (mapSelect) mapSelect.value = data.mapType;
-    if (durSelect) durSelect.value = data.duration;
+    if (document.getElementById('lobbyMapType')) document.getElementById('lobbyMapType').value = data.mapType;
+    if (document.getElementById('lobbyDuration')) document.getElementById('lobbyDuration').value = data.duration;
 });
 
-// --- ATMOSPHERIC PARTICLES ---
 const particles = [];
 function createParticles() {
     particles.length = 0;
@@ -58,12 +99,12 @@ function createParticles() {
     }
 }
 
-// --- UI NAVIGATION ---
 function hideAll() { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); }
 function showCreate() { hideAll(); document.getElementById('createScreen').classList.remove('hidden'); }
 function showJoin() { hideAll(); document.getElementById('joinScreen').classList.remove('hidden'); }
 
 function createRoom() {
+    startAudio();
     const name = document.getElementById('playerName').value || "Slayer";
     const settings = { 
         mapType: document.getElementById('mapType').value, 
@@ -73,6 +114,7 @@ function createRoom() {
 }
 
 function joinRoom() {
+    startAudio();
     const name = document.getElementById('playerName').value || "Guest";
     const code = document.getElementById('roomCodeInput').value;
     socket.emit('joinRoom', { playerName: name, roomCode: code });
@@ -81,7 +123,6 @@ function joinRoom() {
 function startGame() { socket.emit('startGame'); }
 function restartGame() { socket.emit('restartGame'); }
 
-// --- SOCKET EVENTS ---
 socket.on('roomCreated', (data) => {
     hideAll(); isLeader = true;
     document.getElementById('lobbyScreen').classList.remove('hidden');
@@ -107,8 +148,11 @@ socket.on('lobbyUpdate', (players) => {
     }
 });
 
+// --- FIX: Kill spectating and force active state instantly ---
 socket.on('gameStarted', (data) => {
     hideAll();
+    isSpectating = false; 
+    resetInputs(); 
     currentMap = data.mapType;
     createParticles();
     canvas.classList.remove('hidden');
@@ -121,6 +165,7 @@ socket.on('gameStarted', (data) => {
 
 socket.on('playerHit', (pos) => {
     screenShake = 15; 
+    playHitSound();
     for(let i=0; i<12; i++) {
         hitSparks.push({
             x: pos.x, y: pos.y,
@@ -133,6 +178,7 @@ socket.on('playerHit', (pos) => {
 });
 
 socket.on('roomReset', () => {
+    resetInputs(); 
     hideAll();
     gameState = null;
     isSpectating = false;
@@ -155,14 +201,12 @@ socket.on('matchEnded', (data) => {
     if (isLeader) document.getElementById('restartBtn').classList.remove('hidden');
 });
 
-// --- RENDER ENGINE ---
 function draw() {
     if (!gameState) {
         animationId = requestAnimationFrame(draw);
         return;
     }
     const theme = MAPS[currentMap] || MAPS["neon_void"];
-
     ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -187,20 +231,17 @@ function draw() {
     let me = gameState.players[socket.id];
     let target = (me && me.alive) ? me : Object.values(gameState.players).find(p => p.alive) || me;
 
-    const specBanner = document.getElementById('specBanner');
     if (me && !me.alive) {
         isSpectating = true;
-        if (specBanner) specBanner.classList.remove('hidden');
+        document.getElementById('specBanner')?.classList.remove('hidden');
     } else {
         isSpectating = false;
-        if (specBanner) specBanner.classList.add('hidden');
+        document.getElementById('specBanner')?.classList.add('hidden');
     }
 
     if (target) {
         ctx.save();
         ctx.translate(canvas.width / 2 - target.x, canvas.height / 2 - target.y);
-
-        // ARENA FLOOR & GRID
         ctx.beginPath();
         ctx.arc(0, 0, gameState.arenaSize, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
@@ -213,7 +254,6 @@ function draw() {
             ctx.beginPath(); ctx.moveTo(-2000, x); ctx.lineTo(2000, x); ctx.stroke();
         }
 
-        // BORDER
         ctx.shadowBlur = 20;
         ctx.shadowColor = theme.color;
         ctx.strokeStyle = theme.color;
@@ -223,12 +263,10 @@ function draw() {
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // HIT SPARKS
         hitSparks.forEach((s, index) => {
             s.x += s.vx; s.y += s.vy; s.life -= 0.03;
-            if (s.life <= 0) {
-                hitSparks.splice(index, 1);
-            } else {
+            if (s.life <= 0) hitSparks.splice(index, 1);
+            else {
                 ctx.globalAlpha = s.life;
                 ctx.fillStyle = s.color;
                 ctx.fillRect(s.x, s.y, 4, 4);
@@ -236,23 +274,11 @@ function draw() {
         });
         ctx.globalAlpha = 1;
 
-        // PLAYERS
         for (let id in gameState.players) {
             const p = gameState.players[id];
             if (!p.alive) continue;
-            
             const isMe = (id === socket.id);
             const baseColor = isMe ? "#ffffff" : theme.secondary;
-
-            // Movement Trail/Ghosting Effect if dashing
-            if (p.input && p.input.dash) {
-                ctx.globalAlpha = 0.3;
-                ctx.fillStyle = baseColor;
-                ctx.beginPath();
-                ctx.arc(p.x - (p.vx || 0) * 2, p.y - (p.vy || 0) * 2, 18, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
-            }
 
             const grad = ctx.createRadialGradient(p.x - 7, p.y - 7, 2, p.x, p.y, 22);
             grad.addColorStop(0, "#ffffff");
@@ -267,7 +293,6 @@ function draw() {
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // Dash Cooldown Bar (For 'Me')
             if (isMe) {
                 const cdHeight = 4;
                 const cdWidth = 40;
@@ -285,19 +310,14 @@ function draw() {
         }
         ctx.restore();
     }
-
     ctx.restore(); 
 
     const timerDisp = document.getElementById('timerDisplay');
     if (timerDisp) timerDisp.innerText = (gameState.timeLeft || 0) + "s REMAINING";
-    
     animationId = requestAnimationFrame(draw);
 }
 
-// --- INPUTS ---
 const inputs = { up: false, down: false, left: false, right: false, dash: false };
-window.addEventListener('keydown', e => handle(e, true));
-window.addEventListener('keyup', e => handle(e, false));
 
 function handle(e, isDown) {
     if (isSpectating) return; 
@@ -307,9 +327,14 @@ function handle(e, isDown) {
     if (e.code === 'KeyA' && inputs.left !== isDown) { inputs.left = isDown; changed = true; }
     if (e.code === 'KeyD' && inputs.right !== isDown) { inputs.right = isDown; changed = true; }
     if (e.code === 'Space' && inputs.dash !== isDown) { inputs.dash = isDown; changed = true; }
-    
     if (changed) socket.emit('playerInput', inputs);
 }
+
+window.addEventListener('keydown', e => {
+    if (e.code === 'Space') e.preventDefault(); 
+    handle(e, true);
+});
+window.addEventListener('keyup', e => handle(e, false));
 
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;

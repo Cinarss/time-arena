@@ -58,7 +58,6 @@ const MAPS = {
     "galactic_core": { color: "#ff00ff", secondary: "#ffffff", bg: "#0a0015", particleCount: 150, pColor: "#ffffff" }
 };
 
-// --- FIX: Force immediate input state sync ---
 function resetInputs() {
     inputs.up = false;
     inputs.down = false;
@@ -148,7 +147,6 @@ socket.on('lobbyUpdate', (players) => {
     }
 });
 
-// --- FIX: Kill spectating and force active state instantly ---
 socket.on('gameStarted', (data) => {
     hideAll();
     isSpectating = false; 
@@ -242,6 +240,8 @@ function draw() {
     if (target) {
         ctx.save();
         ctx.translate(canvas.width / 2 - target.x, canvas.height / 2 - target.y);
+
+        // ARENA
         ctx.beginPath();
         ctx.arc(0, 0, gameState.arenaSize, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
@@ -274,11 +274,22 @@ function draw() {
         });
         ctx.globalAlpha = 1;
 
+        // PLAYERS
         for (let id in gameState.players) {
             const p = gameState.players[id];
             if (!p.alive) continue;
             const isMe = (id === socket.id);
             const baseColor = isMe ? "#ffffff" : theme.secondary;
+
+            // --- RE-ADDED: MOVEMENT TRAIL EFFECT ---
+            if (p.vx !== 0 || p.vy !== 0) {
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = baseColor;
+                ctx.beginPath();
+                ctx.arc(p.x - (p.vx * 2), p.y - (p.vy * 2), 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
 
             const grad = ctx.createRadialGradient(p.x - 7, p.y - 7, 2, p.x, p.y, 22);
             grad.addColorStop(0, "#ffffff");

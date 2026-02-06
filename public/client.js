@@ -1,5 +1,4 @@
 // --- INITIALIZATION ---
-// Force websocket transport for production stability (Vercel/Railway requirement)
 const socket = io({
     transports: ['websocket'] 
 });
@@ -11,7 +10,9 @@ let gameState = null;
 let currentMap = "neon_void";
 let isLeader = false;
 let isSpectating = false;
-let animationId = null; // Track the loop to prevent memory leaks
+let animationId = null; 
+let screenShake = 0;
+const hitSparks = [];
 
 // --- MAP CONFIGURATIONS ---
 const MAPS = {
@@ -114,22 +115,32 @@ socket.on('gameStarted', (data) => {
     document.getElementById('gameUI').classList.remove('hidden');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    
-    // Ensure only one draw loop is running
     if (animationId) cancelAnimationFrame(animationId);
     draw();
+});
+
+socket.on('playerHit', (pos) => {
+    screenShake = 15; 
+    for(let i=0; i<12; i++) {
+        hitSparks.push({
+            x: pos.x, y: pos.y,
+            vx: (Math.random()-0.5)*18,
+            vy: (Math.random()-0.5)*18,
+            life: 1.0,
+            color: MAPS[currentMap].color
+        });
+    }
 });
 
 socket.on('roomReset', () => {
     hideAll();
     gameState = null;
     isSpectating = false;
-    if (animationId) cancelAnimationFrame(animationId); // Stop drawing when in lobby
+    if (animationId) cancelAnimationFrame(animationId);
     canvas.classList.add('hidden');
     document.getElementById('gameUI').classList.add('hidden');
     document.getElementById('lobbyScreen').classList.remove('hidden');
-    document.getElementById('endScreen').classList.add('hidden'); // Clear end screen
-    
+    document.getElementById('endScreen').classList.add('hidden'); 
     if (isLeader) {
         document.getElementById('leaderSettings').classList.remove('hidden');
         document.getElementById('startBtn').classList.remove('hidden');
@@ -154,6 +165,13 @@ function draw() {
 
     ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    if (screenShake > 0) {
+        ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+        screenShake *= 0.85; 
+        if (screenShake < 0.1) screenShake = 0;
+    }
 
     particles.forEach(p => {
         p.y += p.vy; p.x += p.vx;
@@ -182,20 +200,59 @@ function draw() {
         ctx.save();
         ctx.translate(canvas.width / 2 - target.x, canvas.height / 2 - target.y);
 
+        // ARENA FLOOR & GRID
+        ctx.beginPath();
+        ctx.arc(0, 0, gameState.arenaSize, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+        ctx.lineWidth = 1;
+        for (let x = -2000; x <= 2000; x += 100) {
+            ctx.beginPath(); ctx.moveTo(x, -2000); ctx.lineTo(x, 2000); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-2000, x); ctx.lineTo(2000, x); ctx.stroke();
+        }
+
+        // BORDER
         ctx.shadowBlur = 20;
         ctx.shadowColor = theme.color;
         ctx.strokeStyle = theme.color;
-        ctx.lineWidth = 8;
+        ctx.lineWidth = 10;
         ctx.beginPath();
         ctx.arc(0, 0, gameState.arenaSize, 0, Math.PI * 2);
         ctx.stroke();
         ctx.shadowBlur = 0;
 
+        // HIT SPARKS
+        hitSparks.forEach((s, index) => {
+            s.x += s.vx; s.y += s.vy; s.life -= 0.03;
+            if (s.life <= 0) {
+                hitSparks.splice(index, 1);
+            } else {
+                ctx.globalAlpha = s.life;
+                ctx.fillStyle = s.color;
+                ctx.fillRect(s.x, s.y, 4, 4);
+            }
+        });
+        ctx.globalAlpha = 1;
+
+        // PLAYERS
         for (let id in gameState.players) {
             const p = gameState.players[id];
             if (!p.alive) continue;
             
-            const baseColor = (id === socket.id) ? "#ffffff" : theme.secondary;
+            const isMe = (id === socket.id);
+            const baseColor = isMe ? "#ffffff" : theme.secondary;
+
+            // Movement Trail/Ghosting Effect if dashing
+            if (p.input && p.input.dash) {
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = baseColor;
+                ctx.beginPath();
+                ctx.arc(p.x - (p.vx || 0) * 2, p.y - (p.vy || 0) * 2, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
 
             const grad = ctx.createRadialGradient(p.x - 7, p.y - 7, 2, p.x, p.y, 22);
             grad.addColorStop(0, "#ffffff");
@@ -210,6 +267,17 @@ function draw() {
             ctx.fill();
             ctx.shadowBlur = 0;
 
+            // Dash Cooldown Bar (For 'Me')
+            if (isMe) {
+                const cdHeight = 4;
+                const cdWidth = 40;
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+                ctx.fillRect(p.x - cdWidth/2, p.y + 30, cdWidth, cdHeight);
+                ctx.fillStyle = p.dashCooldown > 0 ? "#555" : "#00f2ff";
+                const progress = p.dashCooldown > 0 ? (1 - p.dashCooldown/100) : 1;
+                ctx.fillRect(p.x - cdWidth/2, p.y + 30, cdWidth * progress, cdHeight);
+            }
+
             ctx.fillStyle = "white";
             ctx.font = "bold 13px Arial";
             ctx.textAlign = "center";
@@ -217,6 +285,8 @@ function draw() {
         }
         ctx.restore();
     }
+
+    ctx.restore(); 
 
     const timerDisp = document.getElementById('timerDisplay');
     if (timerDisp) timerDisp.innerText = (gameState.timeLeft || 0) + "s REMAINING";

@@ -47,7 +47,7 @@ Knock your opponents out of a shrinking arena to be the last one standing!
 
 ### Clone the repository
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/arena-io.git
+git clone https://github.com/Cinarss/time-arena.git
 cd arena-io
 Install dependencies
 npm install
@@ -82,11 +82,10 @@ ENTER	Send Chat (optional)
 Distributed under the MIT License. See LICENSE for more information.
 
 👤 Author
-Developed by YourName
+Developed by Cinarss
 
 
 If you want, I can also:
-- Replace `YourName` + GitHub link
 - Add badges (Node, Socket.io, MIT)
 - Add a **demo GIF** section
 - Make it look 🔥 on GitHub Explore

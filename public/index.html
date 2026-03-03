@@ -1,17 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ARENA.IO | Realistic Battle</title>
+    <link rel="icon" href="data:,">
     <style>
-        body { 
-            margin: 0; 
-            background: #05050a; 
-            color: #fff; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            overflow: hidden; 
+        /* CORE RESET & HIDING LOGIC */
+        body { margin: 0; background: #05050a; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
+        
+        .hidden { 
+            display: none !important; 
+            visibility: hidden !important; 
+            opacity: 0 !important; 
+            pointer-events: none !important; 
         }
 
-        /* Full-screen UI Layers */
+        /* SCREEN LAYERING */
         .screen { 
             position: absolute; 
             width: 100%; 
@@ -21,17 +26,14 @@
             align-items: center; 
             justify-content: center; 
             background: radial-gradient(circle, #0e0e1a 0%, #05050a 100%); 
-            z-index: 10;
+            z-index: 100; 
         }
 
-        .hidden { display: none !important; }
-
-        /* Panels and UI Elements */
         .panel { 
             background: rgba(10, 10, 25, 0.95); 
             padding: 30px; 
             border: 2px solid #00f2ff; 
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.15);
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.15); 
             width: 320px; 
             text-align: center; 
             border-radius: 15px; 
@@ -40,136 +42,60 @@
         h1 { font-size: 3em; margin-bottom: 20px; text-shadow: 0 0 10px #00f2ff; letter-spacing: 2px; }
         h2 { color: #00f2ff; margin-top: 0; }
         
-        button { 
-            width: 100%; 
-            padding: 14px; 
-            margin-top: 15px; 
-            background: #00f2ff; 
-            border: none; 
-            font-weight: bold; 
-            cursor: pointer; 
-            border-radius: 5px;
-            text-transform: uppercase;
-            transition: all 0.2s ease;
-        }
-
+        /* BUTTONS & INPUTS */
+        button { width: 100%; padding: 14px; margin-top: 15px; background: #00f2ff; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; text-transform: uppercase; transition: 0.2s; }
         button:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 242, 255, 0.4); }
-
-        input, select { 
-            width: 100%; 
-            padding: 12px; 
-            margin: 10px 0; 
-            background: #111; 
-            color: #fff; 
-            border: 1px solid #333; 
-            border-radius: 5px;
-            box-sizing: border-box;
-            outline: none;
-        }
-
+        input, select { width: 100%; padding: 12px; margin: 10px 0; background: #111; color: #fff; border: 1px solid #333; border-radius: 5px; box-sizing: border-box; outline: none; }
         input:focus, select:focus { border-color: #00f2ff; }
 
-        /* --- MUSIC TOGGLE BUTTON --- */
-        #muteBtn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: auto;
-            padding: 10px 15px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid #00f2ff;
-            color: #00f2ff;
-            font-size: 12px;
-            z-index: 1000;
-            pointer-events: auto;
-            margin-top: 0;
+        /* LOBBY PLAYER LIST */
+        #playerList { margin: 15px 0; background: rgba(255, 255, 255, 0.05); border-radius: 10px; max-height: 120px; overflow-y: auto; border: 1px solid rgba(0, 242, 255, 0.2); }
+        .player-entry { padding: 8px 12px; border-bottom: 1px solid rgba(0, 242, 255, 0.1); display: flex; justify-content: space-between; font-size: 14px; }
+
+        /* HUD & SPECTATING */
+        #gameUI { position: fixed; top: 20px; width: 100%; text-align: center; z-index: 50; pointer-events: none; }
+        #timerDisplay { font-size: 28px; font-weight: bold; color: #00f2ff; text-shadow: 0 0 15px rgba(0, 242, 255, 0.8); }
+        #specBanner { background: rgba(255, 0, 85, 0.2); color: #ff0055; font-size: 14px; display: inline-block; padding: 5px 15px; border-radius: 20px; border: 1px solid #ff0055; margin-top: 10px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+        /* MOBILE CONTROLS LAYER */
+        #mobileUI { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2000; }
+        #joyBase { position: absolute; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.15); border: 2px solid #00f2ff; border-radius: 50%; }
+        #joyStick { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: #00f2ff; border-radius: 50%; box-shadow: 0 0 15px #00f2ff; }
+        
+        #mobileDashBtn { 
+            position: absolute; 
+            bottom: 40px; 
+            right: 40px; 
+            width: 80px; 
+            height: 80px; 
+            border-radius: 50%; 
+            background: rgba(255, 0, 85, 0.7); 
+            border: 4px solid #ff0055; 
+            color: white; 
+            font-weight: bold; 
+            pointer-events: auto; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            user-select: none;
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+            font-size: 18px;
         }
 
-        #muteBtn:hover {
-            background: #00f2ff;
-            color: #000;
-        }
+        /* FOOTER & NAVIGATION FIXES */
+        .game-footer { position: fixed; bottom: 0; left: 0; width: 100%; padding: 10px 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); border-top: 1px solid rgba(0, 242, 255, 0.2); z-index: 1100; font-size: 12px; color: #888; text-align: center; }
+        .github-link { color: #00f2ff; text-decoration: none; font-weight: bold; margin-left: 10px; }
 
-        /* In-Game HUD */
-        #gameUI { 
-            position: fixed; 
-            top: 20px; 
-            width: 100%; 
-            text-align: center; 
-            z-index: 5; 
-            pointer-events: none;
-        }
+        canvas { position: fixed; top: 0; left: 0; z-index: 1; }
+        #muteBtn { position: fixed; top: 20px; right: 20px; z-index: 1200; width: auto; padding: 8px 12px; background: rgba(0,0,0,0.6); border: 1px solid #00f2ff; color: #00f2ff; border-radius: 5px; cursor: pointer; }
 
-        #timerDisplay {
-            font-size: 32px;
-            font-weight: bold;
-            color: #00f2ff;
-            text-shadow: 0 0 15px rgba(0, 242, 255, 0.8);
-        }
-
-        #specBanner { 
-            background: rgba(255, 0, 85, 0.2);
-            color: #ff0055; 
-            font-size: 18px; 
-            display: inline-block;
-            padding: 5px 20px;
-            border-radius: 20px;
-            border: 1px solid #ff0055;
-            margin-top: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
-
-        .player-node { 
-            padding: 10px; 
-            border-bottom: 1px solid #222; 
-            color: #eee; 
-            text-align: left;
-        }
-
-        /* Footer Styles */
-        .game-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 12px 0;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(0, 242, 255, 0.2);
-            z-index: 100;
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            font-size: 13px;
-            color: #888;
-        }
-
-        .github-link {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #00f2ff;
-            text-decoration: none;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-
-        .github-link:hover {
-            color: #ff0055;
-            text-shadow: 0 0 8px #ff0055;
-            transform: translateY(-1px);
+        /* RESPONSIVE: MOBILE ADJUSTMENTS */
+        @media (max-width: 600px) or (max-height: 600px) {
+            .game-footer { display: none; } /* Hide footer on mobile to show buttons */
+            .panel { width: 260px; padding: 20px; transform: scale(0.9); }
+            h1 { font-size: 2.2em; }
+            #mobileDashBtn { bottom: 30px; right: 30px; width: 70px; height: 70px; }
         }
     </style>
 </head>
@@ -177,10 +103,19 @@
 
     <button id="muteBtn" onclick="toggleMute()">🔊 MUSIC: ON</button>
 
+    <div id="mobileUI" class="hidden">
+        <div id="joyBase" class="hidden"><div id="joyStick"></div></div>
+        <div id="mobileDashBtn" 
+             ontouchstart="mobileDash(true)" 
+             ontouchend="mobileDash(false)"
+             onmousedown="mobileDash(true)"
+             onmouseup="mobileDash(false)">DASH</div>
+    </div>
+
     <div id="menuScreen" class="screen">
         <h1>ARENA.IO</h1>
         <div class="panel">
-            <input type="text" id="playerName" placeholder="Enter Your Name..." maxlength="12">
+            <input type="text" id="playerName" placeholder="Enter Name..." maxlength="12">
             <button onclick="showCreate()">Host Arena</button>
             <button onclick="showJoin()">Join Friend</button>
         </div>
@@ -189,7 +124,6 @@
     <div id="createScreen" class="screen hidden">
         <div class="panel">
             <h2>Lobby Settings</h2>
-            <label style="display:block; text-align:left; font-size:12px; color:#888;">Select Map</label>
             <select id="mapType">
                 <option value="neon_void">Neon Void (Cyberpunk)</option>
                 <option value="lava_pit">Lava Pit (Underworld)</option>
@@ -197,32 +131,28 @@
                 <option value="enchanted_forest">Enchanted Forest (Nature)</option>
                 <option value="galactic_core">Galactic Core (Space)</option>
             </select>
-            
-            <label style="display:block; text-align:left; font-size:12px; color:#888;">Match Duration</label>
             <select id="duration">
-                <option value="30">30 Seconds</option>
                 <option value="60">60 Seconds</option>
                 <option value="90">90 Seconds</option>
                 <option value="120">120 Seconds</option>
             </select>
-
             <button onclick="createRoom()">Open Lobby</button>
-            <button style="background:#222; color:#777;" onclick="location.reload()">Back</button>
+            <button style="background:#222;" onclick="location.reload()">Back</button>
         </div>
     </div>
 
     <div id="joinScreen" class="screen hidden">
         <div class="panel">
             <h2>Enter Code</h2>
-            <input type="text" id="roomCodeInput" placeholder="5-LETTER CODE" style="text-align: center; font-size: 24px; color: #00f2ff;">
+            <input type="text" id="roomCodeInput" placeholder="5-LETTER CODE" style="text-align:center; font-size:24px; color:#00f2ff;">
             <button onclick="joinRoom()">Enter Arena</button>
-            <button style="background:#222; color:#777;" onclick="location.reload()">Back</button>
+            <button style="background:#222;" onclick="location.reload()">Back</button>
         </div>
     </div>
 
     <div id="lobbyScreen" class="screen hidden">
         <div class="panel">
-            <p style="margin:0; color:#888;">ROOM CODE</p>
+            <p style="color:#888; margin:0;">ROOM CODE</p>
             <h1 id="displayCode" style="color:#ff0055; margin-bottom:10px;">-----</h1>
             
             <div id="leaderSettings" class="hidden" style="border-top: 1px solid #333; padding-top: 10px;">
@@ -234,26 +164,20 @@
                     <option value="enchanted_forest">Enchanted Forest</option>
                     <option value="galactic_core">Galactic Core</option>
                 </select>
-                <label style="font-size: 10px; color: #00f2ff; display: block; text-align: left;">ADJUST TIME</label>
-                <select id="lobbyDuration" onchange="changeLobbySettings()">
-                    <option value="30">30 Seconds</option>
-                    <option value="60">60 Seconds</option>
-                    <option value="90">90 Seconds</option>
-                </select>
             </div>
-    
+
             <div id="playerList"></div>
             <button id="startBtn" class="hidden" onclick="startGame()">START MATCH</button>
-            <p id="waitMsg" style="font-size: 12px; color: #555;">Waiting for host...</p>
+            <p id="waitMsg" style="color:#555; font-size:12px;">Waiting for host...</p>
         </div>
     </div>
 
-    <div id="endScreen" class="screen hidden" style="background: rgba(0,0,0,0.9);">
+    <div id="restartScreen" class="screen hidden">
         <div class="panel" style="border-color: #ff0055;">
-            <h1 id="endStatus" style="text-shadow: 0 0 10px #ff0055;">MATCH ENDED</h1>
-            <h2 id="winnerText">Winner: ---</h2>
-            <button id="restartBtn" class="hidden" onclick="restartGame()">RESTART TO LOBBY</button>
-            <button style="background: #222;" onclick="location.reload()">LEAVE</button>
+            <h1 style="text-shadow: 0 0 10px #ff0055;">MATCH ENDED</h1>
+            <p id="winnerText" style="font-size: 1.5em; color: #00f2ff;">Winner: ---</p>
+            <button id="leaderRestartBtn" class="hidden" onclick="restartGame()">RESTART TO LOBBY</button>
+            <button style="background:#222;" onclick="location.reload()">MAIN MENU</button>
         </div>
     </div>
 
@@ -265,15 +189,8 @@
     <canvas id="gameCanvas" class="hidden"></canvas>
 
     <footer class="game-footer">
-        <div class="footer-content">
-            <span>Development by <strong>Cinars</strong></span>
-            <a href="https://github.com/cinarss" target="_blank" class="github-link">
-                <svg height="18" viewBox="0 0 16 16" width="18" fill="currentColor">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-                </svg>
-                Github Account
-            </a>
-        </div>
+        <span>Development by <strong>Cinars</strong></span>
+        <a href="https://github.com/cinarss" target="_blank" class="github-link">Github Account</a>
     </footer>
 
     <script src="/socket.io/socket.io.js"></script>

@@ -171,7 +171,6 @@ socket.on('gameStarted', (data) => {
     canvas.classList.remove('hidden');
     document.getElementById('gameUI').classList.remove('hidden');
     
-    // Improved Mobile Detection for Visibility
     const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     if (isTouchDevice) {
         document.getElementById('mobileUI')?.classList.remove('hidden');
@@ -228,19 +227,31 @@ function draw() {
     ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // MOBILE ZOOM LOGIC
+    const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const zoomLevel = isMobile ? 0.6 : 1.0; 
+
     ctx.save();
+    
+    // Center camera and apply scale
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(zoomLevel, zoomLevel);
+
     if (screenShake > 0) {
         ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
         screenShake *= 0.85; 
         if (screenShake < 0.1) screenShake = 0;
     }
 
+    // Draw Background Particles relative to scaled screen
     particles.forEach(p => {
         p.y += p.vy; p.x += p.vx;
-        if (p.y < 0) p.y = canvas.height;
+        if (p.y < 0) p.y = canvas.height / zoomLevel;
         ctx.globalAlpha = p.opacity * 0.5;
         ctx.fillStyle = theme.pColor;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); 
+        ctx.arc(p.x - (canvas.width / 2) / zoomLevel, p.y - (canvas.height / 2) / zoomLevel, p.size, 0, Math.PI * 2); 
+        ctx.fill();
     });
     ctx.globalAlpha = 1;
 
@@ -257,8 +268,9 @@ function draw() {
 
     if (target) {
         ctx.save();
-        ctx.translate(canvas.width / 2 - target.x, canvas.height / 2 - target.y);
+        ctx.translate(-target.x, -target.y);
 
+        // Arena Border
         ctx.beginPath();
         ctx.arc(0, 0, gameState.arenaSize || 600, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.02)"; ctx.fill();
@@ -297,14 +309,16 @@ function draw() {
             if (isMe) {
                 const cdWidth = 40;
                 ctx.fillStyle = "rgba(0,0,0,0.5)";
-                ctx.fillRect(p.x - cdWidth/2, p.y + 30, cdWidth, 4);
+                ctx.fillRect(p.x - cdWidth/2, p.y + 35, cdWidth, 6);
                 ctx.fillStyle = p.dashCooldown > 0 ? "#555" : "#00f2ff";
                 const progress = p.dashCooldown > 0 ? (1 - p.dashCooldown/100) : 1;
-                ctx.fillRect(p.x - cdWidth/2, p.y + 30, cdWidth * progress, 4);
+                ctx.fillRect(p.x - cdWidth/2, p.y + 35, cdWidth * progress, 6);
             }
 
-            ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-            ctx.fillText(p.name, p.x, p.y - 35);
+            ctx.fillStyle = "white"; 
+            ctx.font = `bold ${14 / zoomLevel}px Arial`; 
+            ctx.textAlign = "center";
+            ctx.fillText(p.name, p.x, p.y - 40);
         }
         ctx.restore();
     }
@@ -337,7 +351,6 @@ const joyBase = document.getElementById('joyBase');
 const joyStickEl = document.getElementById('joyStick');
 
 window.addEventListener('touchstart', e => {
-    // Check if the touch is on the left side of the screen for movement
     if (isSpectating || canvas.classList.contains('hidden')) return;
     const touch = e.touches[0];
     if (touch.clientX < window.innerWidth / 2) {
@@ -354,7 +367,7 @@ window.addEventListener('touchstart', e => {
 
 window.addEventListener('touchmove', e => {
     if (!joyStick.active) return;
-    e.preventDefault(); // Stop mobile "pull to refresh" or scrolling
+    e.preventDefault(); 
     const touch = Array.from(e.touches).find(t => t.clientX < window.innerWidth / 2);
     if (!touch) return;
 
@@ -369,7 +382,6 @@ window.addEventListener('touchmove', e => {
         joyStickEl.style.transform = `translate(${moveX}px, ${moveY}px)`;
     }
     
-    // Set sensitivity threshold
     inputs.left = dx < -15;
     inputs.right = dx > 15;
     inputs.up = dy < -15;
@@ -378,7 +390,6 @@ window.addEventListener('touchmove', e => {
 }, { passive: false });
 
 window.addEventListener('touchend', e => {
-    // If no more touches on the left side, stop movement
     const leftTouch = Array.from(e.touches).find(t => t.clientX < window.innerWidth / 2);
     if (!leftTouch) {
         joyStick.active = false;

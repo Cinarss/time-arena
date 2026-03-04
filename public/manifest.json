@@ -1,0 +1,19 @@
+{
+    "short_name": "ARENA.IO",
+    "name": "ARENA.IO | Realistic Battle",
+    "icons": [
+      {
+        "src": "/img/logo2.png",
+        "type": "image/png",
+        "sizes": "512x512",
+        "purpose": "any maskable"
+      }
+    ],
+    "start_url": "/",
+    "background_color": "#05050a",
+    "display": "standalone",
+    "scope": "/",
+    "theme_color": "#00f2ff",
+    "orientation": "landscape",
+    "description": "Multiplayer Battle Arena"
+  }

@@ -96,12 +96,20 @@ function hideAll() {
     }
 }
 
+function requestFullScreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    else if (el.msRequestFullscreen) el.msRequestFullscreen();
+}
+
 // --- WINDOW GLOBALS ---
 window.showCreate = () => { hideAll(); document.getElementById('createScreen').classList.remove('hidden'); };
 window.showJoin = () => { hideAll(); document.getElementById('joinScreen').classList.remove('hidden'); };
 window.toggleMute = toggleMute;
 
 window.createRoom = () => {
+    requestFullScreen();
     startAudio();
     const name = document.getElementById('playerName').value || "Slayer";
     const settings = { 
@@ -112,6 +120,7 @@ window.createRoom = () => {
 };
 
 window.joinRoom = () => {
+    requestFullScreen(); // Trigger full screen
     startAudio();
     const name = document.getElementById('playerName').value || "Guest";
     const code = document.getElementById('roomCodeInput').value.toUpperCase();
